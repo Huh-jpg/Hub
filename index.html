@@ -67,6 +67,22 @@ header{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .chips button{flex:none;border:1px solid var(--bd);background:transparent;color:var(--tx);border-radius:99px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
 .ctabs{display:flex;border-bottom:1px solid var(--bd)}.ctabs button{flex:1;padding:8px;border:0;background:transparent;color:var(--mu);font:inherit;font-size:13px;cursor:pointer;border-bottom:3px solid transparent}.ctabs button.on{color:var(--tx);font-weight:700;border-bottom-color:var(--ac)}
 .msg{white-space:pre-wrap}
+@media (hover:hover){
+nav button:hover{background:var(--ac);border-color:var(--ac);color:#1d1a17}
+.card{transition:border-color .15s,box-shadow .15s,transform .15s}
+.card:hover{border-color:var(--pr);box-shadow:0 4px 14px rgba(0,0,0,.14)}
+.grid>.card:hover{transform:translateY(-2px)}
+.banner{transition:border-color .15s,box-shadow .15s}.banner:hover{border-color:var(--pr);box-shadow:0 4px 14px rgba(0,0,0,.14)}
+main h2:hover,main h3:hover{text-decoration:underline;text-decoration-color:var(--ac);text-decoration-thickness:3px;text-underline-offset:5px}
+tr:hover td{background:rgba(242,183,5,.2)}
+.rules li:hover{background:rgba(242,183,5,.18);border-radius:6px}
+.pill button:hover{border-color:var(--ac);background:rgba(242,183,5,.18)}
+.btn:hover{filter:brightness(1.1)}.btn.sec:hover{background:rgba(242,183,5,.22)}
+.pager button:hover:not(:disabled),.chips button:hover{background:var(--ac);border-color:var(--ac);color:#1d1a17}
+.hb:hover,.acct:hover{filter:brightness(1.15)}
+}
+.small{font-size:13px;margin-top:6px}.small a{color:var(--pr);font-weight:600}
+.fgt{margin-top:8px;padding:10px;border:1px dashed var(--bd);border-radius:10px}
 </style>
 </head>
 <body>
@@ -187,9 +203,26 @@ let searched=false,lastQ=null;
 function list(){return drivers.filter(d=>!d.ban).sort((a,b)=>btype=='safe'?b.safe-a.safe:b.speed-a.speed)}
 function setType(t){btype=t;['safe','fast'].forEach(k=>$('tb-'+k).classList.toggle('on',k==t));if(searched)doBook()}
 function thDate(d,t){return new Date(d+'T'+t).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}
-function bookView(){const b=booking;return `<div class="card" style="border-color:var(--ok)"><span class="tag ok">จองสำเร็จ</span>
+function bookView(){const b=booking;return `<div class="card" style="border-color:var(--ok)"><span class="tag ok">${b.swapped?'เปลี่ยนพี่วินแล้ว':'จองสำเร็จ'}</span>
 <h3>รหัส ${b.d.id} – ${b.d.name} · ${b.d.plate}</h3><div class="mu">${b.d.bike}</div>
-<p>${b.f} → ${b.t}<br>📅 ${thDate(b.date,b.time)} เวลา ${b.time} น.<br>${b.eta?`วินจะมารับใน ~<b>${b.eta}</b> นาที`:'นัดล่วงหน้า – พี่วินจะไปรอตามเวลาที่จอง'}</p><button class="btn" onclick="openChat()">💬 แชทกับพี่วิน</button></div>`}
+<p>${b.f} → ${b.t}<br>📅 ${thDate(b.date,b.time)} เวลา ${b.time} น.<br>${b.eta?`วินจะมารับใน ~<b>${b.eta+b.q.delay}</b> นาที`:'นัดล่วงหน้า – พี่วินจะไปรอตามเวลาที่จอง'}</p><div style="margin-bottom:8px">${qTag(b.q)}</div>${b.q.ahead>0?`<div class="note">เวลารับอาจเลื่อนจาก ${b.time} เป็นประมาณ ${b.q.newTime} น. เพราะมีคนจองพี่วินคนนี้ก่อนคุณ</div>`:''}<button class="btn" onclick="openChat()">💬 แชทกับพี่วิน</button>${b.q.ahead>0?` <button class="btn sec" onclick="showSim()">🔁 เลือกวินคนใหม่ที่คล้ายกัน</button>`:''}<div id="simres" style="margin-top:10px"></div></div>`}
+const tmin=t=>{const p=t.split(':');return +p[0]*60+ +p[1]};
+const hhmmStr=n=>{n=((n%1440)+1440)%1440;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
+const sgn=n=>n>0?'+'+n:''+n;
+function hs(t){let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return Math.abs(h)}
+function qInfo(d,date,time,skip){const sim=hs(d.id+date+time.slice(0,2))%3;
+ const real=bookings.filter(b=>b!==skip&&b.id==d.id&&b.date==date&&Math.abs(tmin(b.time)-tmin(time))<30).length;
+ const ahead=sim+real,delay=ahead*8;return {ahead,pos:ahead+1,delay,newTime:hhmmStr(tmin(time)+delay)}}
+const qTag=q=>q.ahead==0?'<span class="tag ok">คิวแรก ไม่ต้องรอ</span>':`<span class="tag w">คิวที่ ${q.pos}</span> <span class="mu">มีคนจองก่อน ${q.ahead} คน อาจเลื่อนเป็น ~${q.newTime} น. (+${q.delay} นาที)</span>`;
+function showSim(){const b=booking,cur=b.d,box=$('simres');
+ const dist=d=>Math.abs(d.safe-cur.safe)+Math.abs(d.speed-cur.speed)+(d.bike==cur.bike?0:15);
+ const c=drivers.filter(d=>!d.ban&&d.id!=cur.id).map(d=>({d,q:qInfo(d,b.date,b.time,b.rec),s:dist(d)})).filter(x=>x.q.pos<b.q.pos).sort((a,b)=>a.s-b.s).slice(0,3);
+ if(!c.length){box.innerHTML='<div class="mu">ตอนนี้ไม่มีพี่วินที่คิวสั้นกว่านี้ในช่วงเวลานี้ ลองเลื่อนเวลาจองดูครับ</div>';return}
+ box.innerHTML='<div class="mu" style="margin-bottom:6px">พี่วินที่สไตล์การขับและสภาพรถใกล้เคียง และคิวสั้นกว่า:</div>'+c.map(x=>`<div class="card" style="margin-bottom:6px"><div class="row"><div><b>${x.d.id} · ${sr(x.d.name)}</b><div class="mu">${sr(x.d.plate)} · ${sr(x.d.bike)}</div><div class="mu">ความปลอดภัย ${x.d.safe} (${sgn(x.d.safe-cur.safe)}) · ความเร็ว ${x.d.speed} (${sgn(x.d.speed-cur.speed)})${x.d.bike==cur.bike?' · สภาพรถเหมือนกัน':''}</div><div style="margin-top:4px">${qTag(x.q)}</div></div><button class="btn" onclick="swapRider('${x.d.id}')">เปลี่ยนมาคนนี้</button></div></div>`).join('')}
+function swapRider(id){const b=booking,nd=drivers.find(x=>x.id==id);if(!nd)return;
+ b.d=nd;b.q=qInfo(nd,b.date,b.time,b.rec);if(b.eta!=null)b.eta=2+Math.floor(Math.random()*5);b.swapped=true;
+ if(b.rec){b.rec.id=nd.id;lsSet('bookings',bookings)}
+ $('bres').innerHTML=bookView();startChat();drawBk()}
 function err(m){$('bres').innerHTML=`<div class="card"><span class="tag bad">${m}</span></div>`}
 function doBook(){const f=$('from').value,t=$('to').value,date=$('bd').value,time=$('bt').value,code=$('bc').value;
  if(t=='out')return err('จุดหมายอยู่นอกพื้นที่ให้บริการ');
@@ -200,8 +233,8 @@ function doBook(){const f=$('from').value,t=$('to').value,date=$('bd').value,tim
  searched=true;lastQ={f,t,date,time,when};
  const ds=code?drivers.filter(d=>d.id==code):list().slice(0,5);
  $('bres').innerHTML='<h3>'+(code?'พี่วินที่คุณเลือก':'คนขับที่แนะนำ')+'</h3>'+ds.map(d=>`<div class="card" style="margin-bottom:8px"><div class="row"><div><b>${d.id} · ${d.name}</b> <span class="tag ok">ผ่านการตรวจรถ</span><div class="mu">${d.plate} · ${d.bike}</div>
- <div class="mu">ความปลอดภัย ${d.safe}/100 · ความเร็ว ${d.speed}/100</div></div><button class="btn" onclick="pick(${drivers.indexOf(d)})">จองคนนี้</button></div></div>`).join('')}
-function pick(i){if(!need())return;const q=lastQ,soon=(q.when-new Date())<=15*60000;booking={d:drivers[i],f:q.f,t:q.t,date:q.date,time:q.time,eta:soon?2+Math.floor(Math.random()*5):null};$('bres').innerHTML=bookView();startChat();{const bk={id:booking.d.id,f:booking.f,t:booking.t,date:booking.date,time:booking.time,ts:Date.now()};bookings.unshift(bk);bookings=bookings.slice(0,5);lsSet('bookings',bookings);drawBk()}}
+ <div class="mu">ความปลอดภัย ${d.safe}/100 · ความเร็ว ${d.speed}/100</div><div style="margin-top:4px">${qTag(qInfo(d,date,time))}</div></div><button class="btn" onclick="pick(${drivers.indexOf(d)})">จองคนนี้</button></div></div>`).join('')}
+function pick(i){if(!need())return;const q=lastQ,soon=(q.when-new Date())<=15*60000;booking={d:drivers[i],f:q.f,t:q.t,date:q.date,time:q.time,eta:soon?2+Math.floor(Math.random()*5):null};booking.q=qInfo(booking.d,booking.date,booking.time);$('bres').innerHTML=bookView();startChat();{const bk={id:booking.d.id,f:booking.f,t:booking.t,date:booking.date,time:booking.time,ts:Date.now()};bookings.unshift(bk);bookings=bookings.slice(0,50);booking.rec=bk;lsSet('bookings',bookings);drawBk()}}
 
 V.rules=()=>`<div class="banner"><span>🛡️</span><div><h2>กฎและบทลงโทษ</h2><div class="mu">ความปลอดภัยของนักศึกษามาก่อน – ทุกคันต้องผ่านเกณฑ์</div></div></div>
 <div class="card"><h3>🚫 รถที่ห้ามให้บริการนักศึกษา</h3><ol class="rules">
@@ -277,7 +310,7 @@ V.bookInit=()=>{preCode='';drawBk()};
 
 let DB=null,bookings=[];
 const sr=x=>String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function drawBk(){const e=$('bk');if(!e)return;e.innerHTML=bookings.length?'<h3>การจองล่าสุดในระบบ</h3>'+bookings.map(b=>`<div class="mu">รหัส ${sr(b.id)} · ${sr(b.f)} → ${sr(b.t)} · ${sr(b.date)} ${sr(b.time)}</div>`).join(''):''}
+function drawBk(){const e=$('bk');if(!e)return;e.innerHTML=bookings.length?'<h3>การจองล่าสุดในระบบ</h3>'+bookings.slice(0,5).map(b=>`<div class="mu">รหัส ${sr(b.id)} · ${sr(b.f)} → ${sr(b.t)} · ${sr(b.date)} ${sr(b.time)}</div>`).join(''):''}
 async function initDb(){try{if(!(window.claude&&claude.use))return;DB=await claude.use('db');if(!DB)return;
  DB.collection('reports').onSnapshot(sn=>{const m={};sn.docs.map(d=>d.data()).sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(r=>{const k=r.plate;if(m[k]){m[k].n++;m[k].type=r.type;m[k].spot=r.spot}else m[k]={plate:r.plate,spot:r.spot,type:r.type,note:r.note,n:1}});reports=Object.values(m).reverse();if(cur=='report')drawRep();if(cur=='home')render()});
  DB.collection('posts').orderBy('ts','desc').limit(50).onSnapshot(sn=>{posts=sn.docs.map(d=>d.data());if(cur=='community')drawPosts()});
@@ -287,33 +320,57 @@ async function initDb(){try{if(!(window.claude&&claude.use))return;DB=await clau
 let ME=null,UID=null,PD=null,PRE=null,signedOut=false,afterLogin='home',loginMsg='',tmpPic=null;
 const bad=m=>'<span class="tag bad">'+m+'</span>';
 function av(p,z){const q=p||{};return q.pic?`<img src="${sr(q.pic)}" alt="โปรไฟล์" style="width:${z}px;height:${z}px;border-radius:50%;object-fit:cover;flex:none">`:`<span class="av" style="width:${z}px;height:${z}px;font-size:${Math.round(z/2.4)}px">${sr((q.first||'?')[0])}</span>`}
+let ACC=null,ACCS=[],lmode='login';
+function sync(){ME=ACC&&ACC.prof?ACC.prof:null;signedOut=false}
+function saveAccs(){lsSet('accounts',ACCS);lsSet('session',ACC?ACC.user:null)}
+async function hashPw(pw,salt){try{const b=new TextEncoder().encode(salt+':'+pw),h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;const t=salt+':'+pw;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return 'x'+(h>>>0).toString(16)}}
+const newSalt=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
 function drawAcct(){const e=document.getElementById('acct');if(!e)return;
- e.innerHTML=ME&&!signedOut?`<button class="acct" onclick="go('profile')">${av(ME,30)}${sr(ME.first)}</button>`:`<button class="acct in" onclick="go('login')">เข้าสู่ระบบ</button>`}
-function need(){if(ME&&!signedOut)return true;afterLogin=cur;loginMsg='กรุณาเข้าสู่ระบบก่อนใช้งานฟังก์ชันนี้';go('login');return false}
+ e.innerHTML=ACC?`<button class="acct" onclick="go('profile')">${av(ME||{first:ACC.user},30)}${sr(ME?ME.first:ACC.user)}</button>`:`<button class="acct in" onclick="lmode='login';go('login')">เข้าสู่ระบบ</button>`}
+function need(){if(ACC&&ME)return true;afterLogin=cur;if(ACC){loginMsg='กรุณากรอกโปรไฟล์ให้ครบก่อนใช้งาน';go('profile')}else{loginMsg='กรุณาเข้าสู่ระบบก่อนใช้งานฟังก์ชันนี้';lmode='login';go('login')}return false}
+const anote='<div class="note">ต้นแบบ: บัญชีและโปรไฟล์เก็บในเบราว์เซอร์เครื่องนี้เท่านั้น ยังไม่ได้ยืนยันอีเมลกับ Google</div>';
 function pform(p,btn){return `<div class="card"><div class="row" style="justify-content:flex-start;flex-wrap:nowrap;gap:14px"><div id="pfimg">${av(p,72)}</div><div style="flex:1"><label style="margin-top:0">🖼️ รูปโปรไฟล์</label><input type="file" id="pff" accept="image/jpeg,image/png,image/webp" onchange="pickPic(this)"></div></div>
 <label>ชื่อ</label><input id="pf1" value="${sr(p.first)}"><label>นามสกุล</label><input id="pf2" value="${sr(p.last)}">
 <label>Gmail</label><input id="pf3" type="email" value="${sr(p.email)}" placeholder="example@gmail.com">
 <p><button class="btn" onclick="saveProfile()">${btn}</button></p><div id="pfm"></div></div>`}
 const pnote='<div class="note">ต้นแบบ: ยังไม่ได้ยืนยัน Gmail ผ่าน Google จริง ระบบผูกโปรไฟล์กับบัญชี Claude ที่เปิดหน้านี้ และเก็บโปรไฟล์แบบส่วนตัวเฉพาะคุณ</div>';
-V.login=()=>{const msg=loginMsg;loginMsg='';
- if(ME&&signedOut)return `<div class="banner"><span>🔐</span><div><h2>เข้าสู่ระบบ</h2></div></div><div class="card" style="text-align:center"><div style="display:flex;justify-content:center">${av(ME,72)}</div><h3>${sr(ME.first)} ${sr(ME.last)}</h3><div class="mu">${sr(ME.email)}</div><p><button class="btn" onclick="signIn()">เข้าสู่ระบบ</button></p></div>`;
- return `<div class="banner"><span>🔐</span><div><h2>เข้าสู่ระบบ / ลงทะเบียน</h2><div class="mu">${sr(msg)||'สร้างโปรไฟล์เพื่อจองวิน ร้องเรียน และโพสต์'}</div></div></div>`+pform(PRE||{first:'',last:'',email:''},'บันทึกและเข้าสู่ระบบ')+pnote};
-V.profile=()=>{if(!ME)return V.login();
- return `<div class="banner"><span>👤</span><div><h2>โปรไฟล์ของฉัน</h2><div class="mu">${sr(ME.first)} ${sr(ME.last)} · ${sr(ME.email)}</div></div></div>`+pform(ME,'บันทึกการแก้ไข')+`<p><button class="btn sec" onclick="signOut()">ออกจากระบบ</button></p>`+pnote};
+V.login=()=>{if(ACC)return V.profile();const msg=loginMsg;loginMsg='';
+ const head=`<div class="banner"><span>🔐</span><div><h2>${lmode=='reg'?'สมัครสมาชิก':'เข้าสู่ระบบ'}</h2>${msg?`<div class="mu">${sr(msg)}</div>`:''}</div></div>`;
+ if(lmode=='reg')return head+`<div class="card" style="max-width:420px"><label>ชื่อผู้ใช้</label><input id="rg_u" autocomplete="username" placeholder="a-z 0-9 _ . ยาว 3-20 ตัว"><label>Gmail</label><input id="rg_e" type="email" placeholder="example@gmail.com"><label>รหัสผ่าน</label><input id="rg_p" type="password" autocomplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร"><label>ยืนยันรหัสผ่าน</label><input id="rg_p2" type="password" autocomplete="new-password"><p><button class="btn" onclick="doReg()">สมัครสมาชิก</button></p><div id="lgm"></div><div class="small"><a href="#" onclick="lmode='login';render();return false">← กลับไปเข้าสู่ระบบ</a></div></div>`+anote;
+ return head+`<div class="card" style="max-width:420px"><label>ชื่อผู้ใช้ / Gmail</label><input id="lg_u" autocomplete="username"><label>รหัสผ่าน</label><input id="lg_p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><p><button class="btn" onclick="doLogin()">เข้าสู่ระบบ</button></p><div id="lgm"></div>
+ <div class="small"><a href="#" onclick="document.getElementById('fgt').hidden=!document.getElementById('fgt').hidden;return false">ลืมรหัสผ่าน?</a></div>
+ <div id="fgt" class="fgt" hidden><label style="margin-top:0">Gmail ของบัญชี</label><input id="fg_e" type="email"><label>รหัสผ่านใหม่</label><input id="fg_p" type="password" autocomplete="new-password"><p><button class="btn sec" onclick="doForgot()">ตั้งรหัสผ่านใหม่</button></p><div id="fgm"></div><div class="mu" style="font-size:12px">ต้นแบบ: ยังไม่ได้ส่งอีเมลยืนยัน ในระบบจริงจะส่งลิงก์รีเซ็ตไปที่ Gmail</div></div>
+ <div class="small" style="margin-top:12px">ยังไม่มีบัญชี? <a href="#" onclick="lmode='reg';render();return false">สมัครสมาชิก</a></div></div>`+anote};
+V.profile=()=>{if(!ACC)return V.login();const msg=loginMsg;loginMsg='';const p=ME||{first:'',last:'',email:ACC.email};
+ return `<div class="banner"><span>👤</span><div><h2>โปรไฟล์ของฉัน</h2><div class="mu">${ME?sr(ME.first)+' '+sr(ME.last)+' · '+sr(ME.email):'@'+sr(ACC.user)+' · ยังไม่ได้กรอกโปรไฟล์'}</div>${msg?`<div class="mu">${sr(msg)}</div>`:''}</div></div>`+pform(p,ME?'บันทึกการแก้ไข':'บันทึกโปรไฟล์')+`<p><button class="btn sec" onclick="signOut()">ออกจากระบบ</button></p>`+anote};
 V.loginInit=V.profileInit=()=>{tmpPic=null};
 function pickPic(inp){const f=inp.files[0];if(!f)return;
  if(!/^image\/(jpeg|png|webp)$/.test(f.type)){$('pfm').innerHTML=bad('รองรับเฉพาะไฟล์ JPG, PNG, WEBP');inp.value='';return}
  const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=128;const k=Math.min(im.width,im.height);
   c.getContext('2d').drawImage(im,(im.width-k)/2,(im.height-k)/2,k,k,0,0,128,128);tmpPic=c.toDataURL('image/jpeg',.8);
   $('pfimg').innerHTML=av({pic:tmpPic},72)};im.onerror=()=>{$('pfm').innerHTML=bad('เปิดรูปนี้ไม่ได้')};im.src=r.result};r.readAsDataURL(f)}
+async function doLogin(){const u=$('lg_u').value.trim().toLowerCase(),p=$('lg_p').value,m=$('lgm');
+ if(!u||!p){m.innerHTML=bad('กรอกชื่อผู้ใช้/Gmail และรหัสผ่าน');return}
+ const a=ACCS.find(x=>x.user==u||x.email==u);
+ if(!a||await hashPw(p,a.salt)!==a.hash){m.innerHTML=bad('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');return}
+ ACC=a;sync();saveAccs();drawAcct();loginMsg=ME?'':'กรุณากรอกโปรไฟล์ให้ครบ';go('profile')}
+async function doReg(){const u=$('rg_u').value.trim().toLowerCase(),e=$('rg_e').value.trim().toLowerCase(),p=$('rg_p').value,p2=$('rg_p2').value,m=$('lgm');
+ if(!/^[a-z0-9_.]{3,20}$/.test(u)){m.innerHTML=bad('ชื่อผู้ใช้ 3–20 ตัว ใช้ a-z 0-9 _ . เท่านั้น');return}
+ if(!/^[a-z0-9._%+-]+@gmail\.com$/.test(e)){m.innerHTML=bad('กรอก Gmail ที่ลงท้ายด้วย @gmail.com');return}
+ if(p.length<6){m.innerHTML=bad('รหัสผ่านอย่างน้อย 6 ตัวอักษร');return}
+ if(p!==p2){m.innerHTML=bad('รหัสผ่านไม่ตรงกัน');return}
+ if(ACCS.some(x=>x.user==u||x.email==e)){m.innerHTML=bad('ชื่อผู้ใช้หรือ Gmail นี้ถูกใช้แล้ว');return}
+ const salt=newSalt();ACC={user:u,email:e,salt,hash:await hashPw(p,salt),prof:null};ACCS.push(ACC);sync();saveAccs();drawAcct();loginMsg='สมัครสำเร็จ กรุณากรอกโปรไฟล์ให้ครบ';go('profile')}
+async function doForgot(){const e=$('fg_e').value.trim().toLowerCase(),p=$('fg_p').value,m=$('fgm');
+ if(p.length<6){m.innerHTML=bad('รหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร');return}
+ const a=ACCS.find(x=>x.email==e);if(!a){m.innerHTML=bad('ไม่พบบัญชีที่ใช้ Gmail นี้ในเครื่องนี้');return}
+ a.salt=newSalt();a.hash=await hashPw(p,a.salt);saveAccs();m.innerHTML='<span class="tag ok">ตั้งรหัสผ่านใหม่แล้ว เข้าสู่ระบบได้เลย</span>'}
 async function saveProfile(){const first=$('pf1').value.trim(),last=$('pf2').value.trim(),email=$('pf3').value.trim(),m=$('pfm');
  if(!first||!last){m.innerHTML=bad('กรุณากรอกชื่อและนามสกุล');return}
  if(!/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)){m.innerHTML=bad('กรุณากรอก Gmail ที่ลงท้ายด้วย @gmail.com');return}
- const p={first,last,email,pic:tmpPic!==null?tmpPic:(ME?ME.pic||'':''),ts:Date.now()};ME=p;signedOut=false;lsSet('profile',p);
- if(PD){try{await PD.set(p)}catch(e){alert('บันทึกโปรไฟล์ถาวรไม่ได้ (ต้องมีสิทธิ์ Contributor) – ใช้ได้ชั่วคราวในหน้านี้')}}
- drawAcct();go(['login','profile'].includes(afterLogin)?'home':afterLogin);afterLogin='home'}
-function signIn(){signedOut=false;drawAcct();go(['login','profile'].includes(afterLogin)?'home':afterLogin);afterLogin='home'}
-function signOut(){signedOut=true;drawAcct();go('home')}
+ ACC.prof={first,last,email,pic:tmpPic!==null?tmpPic:(ME?ME.pic||'':''),ts:Date.now()};sync();saveAccs();drawAcct();
+ const t=afterLogin;afterLogin='home';if(t!='home'&&!['login','profile'].includes(t))go(t);else{loginMsg='บันทึกโปรไฟล์แล้ว ✓';go('profile')}}
+function signOut(){ACC=null;ME=null;saveAccs();drawAcct();loginMsg='';lmode='login';go('home')}
 async function initUser(){try{if(!(window.claude&&claude.use))return;const U=await claude.use('user');if(!U)return;const me=await U.me();UID=me.id;
  const pt=(me.name||'').trim().split(/\s+/);PRE={first:pt[0]||'',last:pt.slice(1).join(' '),email:me.email&&/@gmail\.com$/i.test(me.email)?me.email:''};
  if(DB&&UID){PD=DB.doc('data/users/'+UID+'/profile');const sn=await PD.get();if(sn.exists){ME=sn.data();signedOut=false}}
@@ -361,7 +418,7 @@ async function askAI(q){aiMsgs.push({me:true,t:q,ts:Date.now()});const m={me:fal
  finally{aiBusy=false;drawChat()}}
 function chatReply(t){const b=chat.b;
  if(/ขอบคุณ/.test(t))return 'ยินดีครับ ขับขี่ปลอดภัยครับ 🙏';
- if(/ถึง|ไหน|นาที/.test(t))return b.eta?`อีกประมาณ ${b.eta} นาทีถึงครับ`:`ถึงตามเวลานัด ${b.time} น. ครับ`;
+ if(/ถึง|ไหน|นาที/.test(t))return b.eta?`อีกประมาณ ${b.eta+(b.q?b.q.delay:0)} นาทีถึงครับ`:`ถึงตามเวลานัด ${b.time} น. ครับ`;
  if(/หมวก/.test(t))return 'มีหมวกกันน็อกให้ 2 ใบครับ';
  if(/ยกเลิก/.test(t))return 'ถ้าต้องการยกเลิก แจ้งก่อนเวลานัด 10 นาทีนะครับ';
  if(/รอ|จุด|เจอ/.test(t))return `รอที่ ${b.f} นะครับ ผมใส่เสื้อวินสีส้ม รหัส ${b.d.id}`;
@@ -380,7 +437,7 @@ function faq(q){const ok=drivers.filter(d=>!d.ban),top=k=>[...ok].sort((a,b)=>b[
  if(/เวลา|เปิด|โมง|พื้นที่/.test(q))return 'ให้บริการ 06:00-22:00 น. เฉพาะในมหาวิทยาลัยและบริเวณโดยรอบ';
  if(/เข้าสู่ระบบ|โปรไฟล์|login/i.test(q))return 'กดปุ่มเข้าสู่ระบบมุมขวาบน แล้วกรอกรูป ชื่อ นามสกุล และ Gmail';
  return 'ขออภัย ผู้ช่วยนี้ตอบได้เฉพาะเรื่องในเว็บ เช่น กฎ บทลงโทษ การจอง ร้องเรียน วินว่าง และพี่วินที่แนะนำ'}
-{const p=lsGet('profile');if(p&&p.first)ME=p;const r=lsGet('reports');if(Array.isArray(r))reports=r;const po=lsGet('posts');if(Array.isArray(po))posts=po;const b=lsGet('bookings');if(Array.isArray(b))bookings=b}
+{const ac=lsGet('accounts');ACCS=Array.isArray(ac)?ac:[];const ss=lsGet('session');ACC=ACCS.find(x=>x.user==ss)||null;sync();const r=lsGet('reports');if(Array.isArray(r))reports=r;const po=lsGet('posts');if(Array.isArray(po))posts=po;const b=lsGet('bookings');if(Array.isArray(b))bookings=b}
 nav();render();initDb().then(initUser);
 </script>
 </body>
